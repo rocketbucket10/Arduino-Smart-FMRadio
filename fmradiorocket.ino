@@ -1,72 +1,62 @@
-#include <SPI.h>
 #include <Wire.h>
-#include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <RDA5807M.h>
+#include <BME280I2C.h>
 #include "DS3231.h"
+#define FIX_BAND     RADIO_BAND_FM
 #define OLED_RESET 4
-#define FIX_BAND RADIO_BAND_FM
-
-int setButton = 10;
-int backButton = 9;
-int functionSwitch = 8;
-int whereami;
-int functionSwitchButton;
-
+byte setButton = 10;
+byte backButton = 9;
+byte functionSwitch = 8;
+byte whereami;
+byte functionSwitchButton; 
+BME280I2C bme;
 Adafruit_SSD1306 display(OLED_RESET);
 RDA5807M radio;
 RTClib RTC;
-int stations[12] = {9110,9190,9270,9350,9430,9830,10010,10280,10400,10480,10640,10710};
+int stations[8] = {8830,9070,9270,9630,9710,9830,10160,10300};
 
 void setup() {
   Serial.begin(9600);
-  
   pinMode(setButton, INPUT);
   pinMode(backButton, INPUT);
   pinMode(functionSwitch, INPUT);
  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
-    Serial.println(F("SSD1306 allocation failed"));
-    for(;;); // Don't proceed, loop forever
+    for(;;);
   }
   display.display();
   delay(2000);
   display.clearDisplay();
   radio.init();
-  radio.setBandFrequency(FIX_BAND, 9110);
+  radio.setBandFrequency(FIX_BAND, 8830);
   radio.setVolume(6);
-  radio.setMono(true);
+  radio.setMono(false);
   radio.setMute(false);
-  display.setTextSize(2);
+  display.setTextSize(1);
   display.setTextColor(WHITE);
-  display.setCursor(20,10);
   display.print(stations[whereami] / 100.0);
   display.display();
 }
 
 void loop() {
-  Serial.print(digitalRead(functionSwitch));
-  Serial.print(digitalRead(backButton));
-  Serial.println(digitalRead(setButton));
-
+  display.setCursor(0,10);
   display.clearDisplay();
-  display.setCursor(20,10);
-  
    if (functionSwitchButton == 0) { //FM rádió
      if (digitalRead(setButton)== HIGH){
-      if (whereami == 11) whereami = 0;
+      if (whereami == 7) whereami = 0;
       else whereami++;
       setFrequency();
     }
 
     if (digitalRead(backButton)== HIGH){
-      if (whereami == 0) whereami = 11;
+      if (whereami == 0) whereami = 7;
       else whereami--;
       setFrequency();
     }
-  } else if (functionSwitchButton == 1) { //MP3
-      mp3Start();
-  } else { //Óra és pára
-      oraPara();
+  } else if (functionSwitchButton == 1) { //homerseklet
+      homerseklet(); //homerseklet
+  } else { //Óra
+      ora();
   }
   
   if (digitalRead(functionSwitch) == HIGH){
@@ -89,13 +79,28 @@ void setFrequency(){
   display.display();
   radio.setBandFrequency(FIX_BAND, stations[whereami]);
 }
-void mp3Start(){
-
-  display.print("MP3");
-  display.display();
+void homerseklet(){
+   bme.begin();
+   float temp(NAN), hum(NAN), pres(NAN);
+   BME280::TempUnit tempUnit(BME280::TempUnit_Celsius);
+   BME280::PresUnit presUnit(BME280::PresUnit_Pa);
+   bme.read(pres, temp, hum, tempUnit, presUnit);
+   display.print("H: ");
+   display.print(temp);
+   display.print("C");
+   display.print(" ");
+   display.print(" ");
+   display.print("P: ");
+   display.print(hum);
+   display.print("%");
+   display.print(" ");
+   display.print("NY: ");
+   display.print(pres / 1000);
+   display.print("kPa");
+   display.display();
 }
-void oraPara(){
-    display.setCursor(10,7);
+void ora(){
+  
     DateTime now = RTC.now();
     display.print(now.year());
     display.print("/");
